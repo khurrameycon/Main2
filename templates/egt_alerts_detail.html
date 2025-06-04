@@ -1,0 +1,472 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>EGT Alert Analysis: Mission {{ mission.session_id }}</h1>
+    <div>
+        <a href="/mission/{{ mission.session_id }}" class="btn btn-secondary">Back to Mission</a>
+        <a href="/aircraft/{{ mission.tail_number }}" class="btn btn-outline-secondary">Aircraft Details</a>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Mission Information</h5>
+            </div>
+            <div class="card-body">
+                <p class="card-text"><strong>Aircraft:</strong> {{ mission.tail_number }}</p>
+                <p class="card-text"><strong>Start Time:</strong> {{ mission.start_time.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+                <p class="card-text"><strong>End Time:</strong> {{ mission.end_time.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+                <p class="card-text"><strong>Duration:</strong> 
+                    {{ "%.1f"|format((mission.end_time - mission.start_time).total_seconds() / 3600) }} hours
+                </p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Alert Summary</h5>
+            </div>
+            <div class="card-body">
+                {% set critical_count = egt_alerts | selectattr('severity', 'equalto', 'CRITICAL') | list | length %}
+                {% set high_count = egt_alerts | selectattr('severity', 'equalto', 'HIGH') | list | length %}
+                {% set medium_count = egt_alerts | selectattr('severity', 'equalto', 'MEDIUM') | list | length %}
+                {% set low_count = egt_alerts | selectattr('severity', 'equalto', 'LOW') | list | length %}
+                
+                <p class="card-text"><strong>Total Alerts:</strong> {{ egt_alerts|length }}</p>
+                
+                <div class="mb-3">
+                    {% if critical_count > 0 %}
+                    <span class="badge bg-danger me-2">{{ critical_count }} Critical</span>
+                    {% endif %}
+                    {% if high_count > 0 %}
+                    <span class="badge bg-warning text-dark me-2">{{ high_count }} High</span>
+                    {% endif %}
+                    {% if medium_count > 0 %}
+                    <span class="badge bg-info text-dark me-2">{{ medium_count }} Medium</span>
+                    {% endif %}
+                    {% if low_count > 0 %}
+                    <span class="badge bg-secondary me-2">{{ low_count }} Low</span>
+                    {% endif %}
+                </div>
+                
+                {% if egt_alerts|length == 0 %}
+                <div class="alert alert-success mb-0">
+                    <i class="fas fa-check-circle"></i> No EGT alerts detected
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Alert Type Summary Cards -->
+{% if alerts_by_type %}
+<div class="row mb-4">
+    {% for alert_type, type_alerts in alerts_by_type.items() %}
+    <div class="col-md-6 col-lg-4 mb-3">
+        <div class="card h-100 alert-type-{{ alert_type }}">
+            <div class="card-header">
+                <h6 class="card-title mb-0">
+                    {{ alert_type|replace('_', ' ')|title }} 
+                    <span class="badge bg-primary">{{ type_alerts|length }}</span>
+                </h6>
+            </div>
+            <div class="card-body">
+                {% if alert_type == 'egt_divergence' %}
+                <div class="alert alert-warning p-2">
+                    <small>
+                        <strong>EGT Divergence:</strong> Cylinders showing increasing temperature spread. 
+                        May indicate fuel distribution issues.
+                    </small>
+                </div>
+                {% elif alert_type == 'hot_cylinder' %}
+                <div class="alert alert-danger p-2">
+                    <small>
+                        <strong>Hot Cylinder:</strong> Individual cylinder running significantly hotter. 
+                        Check fuel injection and ignition.
+                    </small>
+                </div>
+                {% elif alert_type == 'cold_cylinder' %}
+                <div class="alert alert-info p-2">
+                    <small>
+                        <strong>Cold Cylinder:</strong> Individual cylinder running cooler than normal. 
+                        Check fuel flow and ignition timing.
+                    </small>
+                </div>
+                {% elif alert_type == 'rapid_change' %}
+                <div class="alert alert-warning p-2">
+                    <small>
+                        <strong>Rapid Changes:</strong> Quick EGT fluctuations detected. 
+                        May indicate engine instability.
+                    </small>
+                </div>
+                {% elif alert_type == 'sustained_high' %}
+                <div class="alert alert-danger p-2">
+                    <small>
+                        <strong>Sustained High:</strong> Prolonged elevated temperatures. 
+                        Monitor for engine wear.
+                    </small>
+                </div>
+                {% elif alert_type == 'sustained_low' %}
+                <div class="alert alert-info p-2">
+                    <small>
+                        <strong>Sustained Low:</strong> Prolonged low temperatures. 
+                        Check fuel delivery and ignition.
+                    </small>
+                </div>
+                {% endif %}
+                
+                <small class="text-muted">
+                    <strong>Times:</strong>
+                    {% for alert in type_alerts[:3] %}
+                        {{ alert.alert_timestamp.strftime('%H:%M:%S') }}{% if not loop.last %}, {% endif %}
+                    {% endfor %}
+                    {% if type_alerts|length > 3 %}
+                        <span class="text-muted">+{{ type_alerts|length - 3 }} more</span>
+                    {% endif %}
+                </small>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- Detailed Alerts Table -->
+{% if egt_alerts|length > 0 %}
+<div class="card mb-4">
+    <div class="card-header">
+        <div class="d-flex justify-content-between align-items-center">
+            <h5 class="card-title mb-0">Detailed Alert Timeline</h5>
+            <div>
+                <input type="text" id="alertSearch" class="form-control form-control-sm" placeholder="Search alerts..." style="width: 200px;">
+            </div>
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-striped table-hover" id="alertsTable">
+                <thead>
+                    <tr>
+                        <th>Time</th>
+                        <th>Type</th>
+                        <th>Severity</th>
+                        <th>Title</th>
+                        <th>Affected</th>
+                        <th>Deviation</th>
+                        <th>Details</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for alert in egt_alerts %}
+                    <tr class="
+                        {% if alert.severity == 'CRITICAL' %}table-danger
+                        {% elif alert.severity == 'HIGH' %}table-warning
+                        {% elif alert.severity == 'MEDIUM' %}table-info
+                        {% endif %}">
+                        <td>
+                            <small>{{ alert.alert_timestamp.strftime('%H:%M:%S') }}</small>
+                        </td>
+                        <td>
+                            <span class="badge bg-secondary">{{ alert.alert_type|replace('_', ' ')|title }}</span>
+                        </td>
+                        <td>
+                            <span class="badge 
+                                {% if alert.severity == 'CRITICAL' %}bg-danger
+                                {% elif alert.severity == 'HIGH' %}bg-warning text-dark
+                                {% elif alert.severity == 'MEDIUM' %}bg-info
+                                {% else %}bg-secondary{% endif %}">
+                                {{ alert.severity }}
+                            </span>
+                        </td>
+                        <td>
+                            <small><strong>{{ alert.title }}</strong></small>
+                        </td>
+                        <td>
+                            <small>{{ alert.affected_cylinders|replace('_', ' ')|title }}</small>
+                        </td>
+                        <td>
+                            {% if alert.deviation_amount %}
+                                <small>{{ "%.1f"|format(alert.deviation_amount) }}°C</small>
+                            {% else %}
+                                <small>-</small>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-info" type="button" 
+                                    data-bs-toggle="collapse" 
+                                    data-bs-target="#alert-{{ loop.index }}" 
+                                    aria-expanded="false">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    <tr class="collapse" id="alert-{{ loop.index }}">
+                        <td colspan="7">
+                            <div class="alert alert-light p-3">
+                                <h6>Alert Details</h6>
+                                <p><strong>Description:</strong> {{ alert.description }}</p>
+                                
+                                {% if alert.egt_values %}
+                                <p><strong>EGT Values:</strong></p>
+                                <div class="row">
+                                    {% for key, value in alert.egt_values.items() %}
+                                    <div class="col-auto">
+                                        <span class="badge bg-light text-dark">
+                                            {{ key|upper }}: {{ "%.0f"|format(value) }}°C
+                                        </span>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                                
+                                {% if alert.egt_spread %}
+                                <p><strong>EGT Spread:</strong> {{ "%.1f"|format(alert.egt_spread) }}°C</p>
+                                {% endif %}
+                                
+                                <p><strong>Trend Direction:</strong> 
+                                    <span class="badge 
+                                        {% if alert.trend_direction == 'increasing' %}bg-warning
+                                        {% elif alert.trend_direction == 'hot' %}bg-danger
+                                        {% elif alert.trend_direction == 'cold' %}bg-info
+                                        {% elif alert.trend_direction == 'unstable' %}bg-warning
+                                        {% else %}bg-secondary{% endif %}">
+                                        {{ alert.trend_direction|title }}
+                                    </span>
+                                </p>
+                                
+                                <small class="text-muted">Created: {{ alert.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</small>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Maintenance Recommendations -->
+<div class="card">
+    <div class="card-header">
+        <h5 class="card-title mb-0">Maintenance Recommendations</h5>
+    </div>
+    <div class="card-body">
+        {% set critical_alerts = egt_alerts | selectattr('severity', 'equalto', 'CRITICAL') | list %}
+        {% set high_alerts = egt_alerts | selectattr('severity', 'equalto', 'HIGH') | list %}
+        
+        {% if critical_alerts|length > 0 %}
+        <div class="alert alert-danger">
+            <h6><i class="fas fa-exclamation-triangle"></i> Critical Actions Required</h6>
+            <ul class="mb-0">
+                <li><strong>Ground aircraft immediately</strong> - Do not fly until issues are resolved</li>
+                <li>Perform comprehensive engine inspection focusing on EGT anomaly patterns</li>
+                <li>Check fuel injection system and ignition timing for affected cylinders</li>
+                <li>Inspect cylinder compression and valve operation</li>
+                <li>Consider borescope inspection of affected cylinders</li>
+            </ul>
+        </div>
+        {% endif %}
+        
+        {% if high_alerts|length > 0 %}
+        <div class="alert alert-warning">
+            <h6><i class="fas fa-exclamation-circle"></i> Priority Maintenance (Within 24 Hours)</h6>
+            <ul class="mb-0">
+                <li>Schedule detailed engine inspection before next flight</li>
+                <li>Monitor EGT patterns closely during ground run-up</li>
+                <li>Check fuel system for blockages or leaks in affected cylinders</li>
+                <li>Verify ignition system operation and timing</li>
+                <li>Check fuel injector spray patterns</li>
+            </ul>
+        </div>
+        {% endif %}
+        
+        <div class="alert alert-info">
+            <h6><i class="fas fa-info-circle"></i> General Recommendations</h6>
+            <ul class="mb-0">
+                <li>Continue monitoring EGT patterns during future flights</li>
+                <li>Document any operational changes or pilot observations</li>
+                <li>Trend analysis across multiple flights to identify patterns</li>
+                <li>Maintain detailed maintenance logs for correlation analysis</li>
+                <li>Consider fuel system cleaning if divergence patterns persist</li>
+                <li>Review engine operating procedures with flight crew</li>
+            </ul>
+        </div>
+        
+        <!-- Specific Recommendations by Alert Type -->
+        {% if 'hot_cylinder' in alerts_by_type %}
+        <div class="alert alert-danger">
+            <h6>Hot Cylinder Specific Actions:</h6>
+            <ul class="mb-0">
+                <li>Check fuel injector for proper spray pattern and flow</li>
+                <li>Inspect ignition harness and spark plug for affected cylinder</li>
+                <li>Verify proper ignition timing</li>
+                <li>Check for intake air leaks</li>
+                <li>Consider cylinder compression test</li>
+            </ul>
+        </div>
+        {% endif %}
+        
+        {% if 'egt_divergence' in alerts_by_type %}
+        <div class="alert alert-warning">
+            <h6>EGT Divergence Specific Actions:</h6>
+            <ul class="mb-0">
+                <li>Check fuel manifold for even distribution</li>
+                <li>Verify fuel injector flow rates are balanced</li>
+                <li>Inspect fuel lines for restrictions</li>
+                <li>Check for intake air distribution issues</li>
+                <li>Verify proper fuel mixture control operation</li>
+            </ul>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Search functionality
+    const searchInput = document.getElementById('alertSearch');
+    if (searchInput) {
+        searchInput.addEventListener('keyup', function() {
+            const filter = this.value.toLowerCase();
+            const rows = document.querySelectorAll('#alertsTable tbody tr:not(.collapse)');
+            
+            rows.forEach(row => {
+                const text = row.textContent.toLowerCase();
+                row.style.display = text.includes(filter) ? '' : 'none';
+                
+                // Also hide the corresponding detail row
+                const nextRow = row.nextElementSibling;
+                if (nextRow && nextRow.classList.contains('collapse')) {
+                    nextRow.style.display = text.includes(filter) ? '' : 'none';
+                }
+            });
+        });
+    }
+    
+    // Auto-expand critical alerts
+    const criticalRows = document.querySelectorAll('.table-danger');
+    criticalRows.forEach(row => {
+        const button = row.querySelector('button[data-bs-toggle="collapse"]');
+        if (button) {
+            // Auto-expand first critical alert
+            if (criticalRows[0] === row) {
+                button.click();
+            }
+        }
+    });
+});
+</script>
+
+<style>
+/* Alert type specific styling */
+.alert-type-egt_divergence {
+    border-left: 4px solid #ffc107;
+}
+
+.alert-type-hot_cylinder {
+    border-left: 4px solid #dc3545;
+}
+
+.alert-type-cold_cylinder {
+    border-left: 4px solid #0dcaf0;
+}
+
+.alert-type-rapid_change {
+    border-left: 4px solid #fd7e14;
+}
+
+.alert-type-sustained_high {
+    border-left: 4px solid #dc3545;
+}
+
+.alert-type-sustained_low {
+    border-left: 4px solid #6f42c1;
+}
+
+/* Table styling */
+.table-responsive {
+    font-size: 0.9rem;
+}
+
+.table-danger {
+    background-color: rgba(220, 53, 69, 0.1) !important;
+}
+
+.table-warning {
+    background-color: rgba(255, 193, 7, 0.1) !important;
+}
+
+.table-info {
+    background-color: rgba(13, 202, 240, 0.1) !important;
+}
+
+/* Badge animations for critical alerts */
+.table-danger .badge.bg-danger {
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.7);
+    }
+    70% {
+        box-shadow: 0 0 0 10px rgba(220, 53, 69, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(220, 53, 69, 0);
+    }
+}
+
+/* Collapsible row styling */
+.collapse {
+    transition: all 0.3s ease;
+}
+
+.alert-light {
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 0.375rem;
+}
+
+/* Search box styling */
+#alertSearch {
+    border-radius: 0.375rem;
+    border: 1px solid #ced4da;
+}
+
+#alertSearch:focus {
+    border-color: #86b7fe;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+/* Card hover effects */
+.card:hover {
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+    transition: box-shadow 0.15s ease-in-out;
+}
+
+/* Alert severity indicators */
+.severity-critical {
+    border-left: 5px solid #dc3545;
+}
+
+.severity-high {
+    border-left: 5px solid #ffc107;
+}
+
+.severity-medium {
+    border-left: 5px solid #0dcaf0;
+}
+
+.severity-low {
+    border-left: 5px solid #6c757d;
+}
+</style>
+{% endblock %}

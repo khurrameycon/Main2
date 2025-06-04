@@ -1,0 +1,71 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Maintenance Analysis: {{ aircraft.tail_number }}</h1>
+    <div>
+        <a href="/aircraft/{{ aircraft.tail_number }}" class="btn btn-secondary">Back to Aircraft</a>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Maintenance Recommendations</h5>
+            </div>
+            <div class="card-body">
+                {% if recommendations %}
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Component</th>
+                                <th>Severity</th>
+                                <th>Recommendation</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for rec in recommendations %}
+                            <tr>
+                                <td>{{ rec.component }}</td>
+                                <td>
+                                    <span class="badge 
+                                        {% if rec.severity == 'Warning' %}bg-warning text-dark
+                                        {% elif rec.severity == 'Alert' %}bg-danger
+                                        {% elif rec.severity == 'Critical' %}bg-danger
+                                        {% else %}bg-info{% endif %}">
+                                        {{ rec.severity }}
+                                    </span>
+                                </td>
+                                <td>{{ rec.message }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="alert alert-success">
+                    <p>No maintenance issues detected. All systems operating within normal parameters.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Component Health Trends</h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="iframe-container">
+                    <iframe src="http://localhost:3000/d/maintenance-trends/maintenance-trends?orgId=1&var-tail_number={{ aircraft.tail_number }}" frameborder="0" allowfullscreen></iframe>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h1 class="mb-4">Aircraft Fleet Overview</h1>
+
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Fleet Status</h5>
+            </div>
+            <div class="card-body">
+                <p class="card-text">Total Aircraft: <strong>{{ aircraft|length }}</strong></p>
+                <p class="card-text">Total Missions: <strong>{{ aircraft|sum(attribute='mission_count') }}</strong></p>
+                <a href="/upload" class="btn btn-primary">Upload Flight Data</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="card-title mb-0">Aircraft List</h5>
+    </div>
+    <div class="card-body">
+        {% if aircraft %}
+        <div class="table-responsive">
+            <table class="table table-striped table-hover">
+                <thead>
+                    <tr>
+                        <th>Tail Number</th>
+                        <th>Missions</th>
+                        <th>Last Flight</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for plane in aircraft %}
+                    <tr>
+                        <td>{{ plane.tail_number }}</td>
+                        <td>{{ plane.mission_count or 0 }}</td>
+                        <td>{{ plane.last_mission or 'No missions recorded' }}</td>
+                        <td>
+                            <a href="/aircraft/{{ plane.tail_number }}" class="btn btn-sm btn-info">Details</a>
+                            <a href="/maintenance/{{ plane.tail_number }}" class="btn btn-sm btn-warning">Maintenance</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p>No aircraft found in the system. Upload flight data to add aircraft.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

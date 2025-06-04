@@ -1,0 +1,451 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Mission Details: {{ mission.session_id }}</h1>
+    <div>
+        <a href="/aircraft/{{ mission.tail_number }}" class="btn btn-secondary">Back to Aircraft</a>
+    </div>
+</div>
+
+<!-- EGT Alerts Banner -->
+{% if alert_summary.total > 0 %}
+<div class="alert 
+    {% if alert_summary.critical > 0 %}alert-danger
+    {% elif alert_summary.high > 0 %}alert-warning
+    {% else %}alert-info{% endif %} 
+    alert-dismissible fade show mb-4" role="alert">
+    <div class="d-flex justify-content-between align-items-center">
+        <div>
+            <h5 class="alert-heading">
+                {% if alert_summary.critical > 0 %}
+                    🚨 Critical EGT Alerts Detected
+                {% elif alert_summary.high > 0 %}
+                    ⚠️ EGT Anomalies Detected
+                {% else %}
+                    ℹ️ EGT Notices
+                {% endif %}
+            </h5>
+            <p class="mb-2">
+                <strong>{{ alert_summary.total }} EGT alert(s)</strong> detected during this mission:
+                {% if alert_summary.critical > 0 %}<span class="badge bg-danger">{{ alert_summary.critical }} Critical</span>{% endif %}
+                {% if alert_summary.high > 0 %}<span class="badge bg-warning text-dark">{{ alert_summary.high }} High</span>{% endif %}
+                {% if alert_summary.medium > 0 %}<span class="badge bg-info">{{ alert_summary.medium }} Medium</span>{% endif %}
+                {% if alert_summary.low > 0 %}<span class="badge bg-secondary">{{ alert_summary.low }} Low</span>{% endif %}
+            </p>
+            <small>
+                {% if alert_summary.critical > 0 %}
+                    Immediate maintenance action required before next flight.
+                {% elif alert_summary.high > 0 %}
+                    Priority inspection recommended within 24 hours.
+                {% else %}
+                    Monitor trends and schedule routine inspection.
+                {% endif %}
+            </small>
+        </div>
+        <div>
+            <a href="/egt_alerts/{{ mission.session_id }}" class="btn btn-outline-dark btn-sm">
+                <i class="fas fa-chart-line"></i> View Details
+            </a>
+        </div>
+    </div>
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+{% endif %}
+
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Mission Information</h5>
+            </div>
+            <div class="card-body">
+                <p class="card-text"><strong>Aircraft:</strong> {{ mission.tail_number }}</p>
+                <p class="card-text"><strong>Start Time:</strong> {{ mission.start_time.strftime('%Y-%m-%d %H:%M:%S') if mission.start_time else 'N/A' }}</p>
+                <p class="card-text"><strong>End Time:</strong> {{ mission.end_time.strftime('%Y-%m-%d %H:%M:%S') if mission.end_time else 'N/A' }}</p>
+                <p class="card-text"><strong>Duration:</strong> 
+                    {% if mission.start_time and mission.end_time %}
+                        {{ "%.1f"|format((mission.end_time - mission.start_time).total_seconds() / 3600) }} hours
+                    {% else %}
+                        N/A
+                    {% endif %}
+                </p>
+                {% if mission.mission_id %}
+                <p class="card-text"><strong>Mission ID:</strong> {{ mission.mission_id }}</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card {% if alert_summary.total > 0 %}border-warning{% endif %}">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Key Metrics & Alerts</h5>
+            </div>
+            <div class="card-body">
+                {% if metrics %}
+                <p class="card-text"><strong>Data Points:</strong> {{ metrics.data_points }}</p>
+                <p class="card-text"><strong>Max RPM:</strong> {{ metrics.max_rpm_left }}</p>
+                <p class="card-text"><strong>Max Oil Temp:</strong> {{ metrics.max_oil_temp }}°C</p>
+                <p class="card-text"><strong>Min Oil Pressure:</strong> {{ metrics.min_oil_pressure }} PSI</p>
+                <p class="card-text"><strong>Max CHT:</strong> {{ metrics.max_cht }}°C</p>
+                {% else %}
+                <p>No engine metrics available for this mission.</p>
+                {% endif %}
+                
+                <!-- EGT Alert Summary -->
+                {% if alert_summary.total > 0 %}
+                <hr>
+                <div class="alert alert-light p-2 mb-2">
+                    <small>
+                        <strong>EGT Alert Summary:</strong><br>
+                        {% for alert in egt_alerts[:3] %}
+                            <span class="badge 
+                                {% if alert.severity == 'CRITICAL' %}bg-danger
+                                {% elif alert.severity == 'HIGH' %}bg-warning text-dark
+                                {% elif alert.severity == 'MEDIUM' %}bg-info
+                                {% else %}bg-secondary{% endif %} me-1 mb-1">
+                                {{ alert.alert_type|replace('_', ' ')|title }}
+                            </span>
+                        {% endfor %}
+                        {% if egt_alerts|length > 3 %}
+                            <span class="text-muted">+{{ egt_alerts|length - 3 }} more</span>
+                        {% endif %}
+                    </small>
+                </div>
+                {% else %}
+                <div class="alert alert-success p-2 mb-0">
+                    <small><i class="fas fa-check-circle"></i> No EGT anomalies detected</small>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick EGT Alerts Table (if any) -->
+{% if egt_alerts %}
+<div class="card mb-4">
+    <div class="card-header">
+        <div class="d-flex justify-content-between align-items-center">
+            <h5 class="card-title mb-0">EGT Alerts Timeline</h5>
+            <span class="badge bg-primary">{{ egt_alerts|length }} alerts</span>
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-sm table-hover">
+                <thead>
+                    <tr>
+                        <th>Time</th>
+                        <th>Type</th>
+                        <th>Severity</th>
+                        <th>Description</th>
+                        <th>Affected</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for alert in egt_alerts[:10] %}
+                    <tr class="
+                        {% if alert.severity == 'CRITICAL' %}table-danger
+                        {% elif alert.severity == 'HIGH' %}table-warning
+                        {% elif alert.severity == 'MEDIUM' %}table-info
+                        {% endif %}">
+                        <td>
+                            <small>{{ alert.alert_timestamp.strftime('%H:%M:%S') if alert.alert_timestamp else 'N/A' }}</small>
+                        </td>
+                        <td>
+                            <span class="badge bg-secondary">{{ alert.alert_type|replace('_', ' ')|title }}</span>
+                        </td>
+                        <td>
+                            <span class="badge 
+                                {% if alert.severity == 'CRITICAL' %}bg-danger
+                                {% elif alert.severity == 'HIGH' %}bg-warning text-dark
+                                {% elif alert.severity == 'MEDIUM' %}bg-info
+                                {% else %}bg-secondary{% endif %}">
+                                {{ alert.severity }}
+                            </span>
+                        </td>
+                        <td>
+                            <small>{{ alert.title }}</small>
+                        </td>
+                        <td>
+                            <small>{{ alert.affected_cylinders|replace('_', ' ')|title }}</small>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% if egt_alerts|length > 10 %}
+        <div class="text-center">
+            <a href="/egt_alerts/{{ mission.session_id }}" class="btn btn-outline-primary btn-sm">
+                View All {{ egt_alerts|length }} Alerts
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+<div class="card mb-4">
+    <div class="card-header">
+        <ul class="nav nav-tabs card-header-tabs">
+            <li class="nav-item">
+                <a class="nav-link dashboard-tab active" data-target="engine-dashboard">Engine Health</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link dashboard-tab" data-target="flight-dashboard">Flight Performance</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link dashboard-tab" data-target="system-dashboard">System Status</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link dashboard-tab" data-target="anomaly-dashboard">Anomaly Detection</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link dashboard-tab" data-target="egt-analysis-dashboard">
+                    EGT Analysis 
+                    {% if alert_summary.total > 0 %}
+                        <span class="badge bg-danger">{{ alert_summary.total }}</span>
+                    {% endif %}
+                </a>
+            </li>
+        </ul>
+    </div>
+    <div class="card-body p-0">
+        <div id="engine-dashboard" class="dashboard-pane">
+            <div class="iframe-container">
+                <iframe src="{{ grafana_urls.engine }}" frameborder="0" allowfullscreen></iframe>
+            </div>
+        </div>
+        <div id="flight-dashboard" class="dashboard-pane d-none">
+            <div class="iframe-container">
+                <iframe src="{{ grafana_urls.flight }}" frameborder="0" allowfullscreen></iframe>
+            </div>
+        </div>
+        <div id="system-dashboard" class="dashboard-pane d-none">
+            <div class="iframe-container">
+                <iframe src="{{ grafana_urls.system }}" frameborder="0" allowfullscreen></iframe>
+            </div>
+        </div>
+        <div id="anomaly-dashboard" class="dashboard-pane d-none">
+            <div class="iframe-container">
+                <iframe src="{{ grafana_urls.anomaly }}" frameborder="0" allowfullscreen></iframe>
+            </div>
+        </div>
+        <div id="egt-analysis-dashboard" class="dashboard-pane d-none">
+            {% if alert_summary.total > 0 %}
+                <div class="alert alert-warning m-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <strong>EGT Anomalies Detected:</strong> {{ alert_summary.total }} alerts found during this mission.
+                            Click "View Details" for comprehensive analysis.
+                        </div>
+                        <a href="/egt_alerts/{{ mission.session_id }}" class="btn btn-warning btn-sm">View Details</a>
+                    </div>
+                </div>
+            {% else %}
+                <div class="alert alert-success m-3">
+                    <strong>✅ No EGT Anomalies:</strong> All EGT patterns are within normal parameters.
+                </div>
+            {% endif %}
+            
+            <div class="iframe-container">
+                <iframe src="{{ grafana_urls.egt }}" frameborder="0" allowfullscreen></iframe>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- EGT Analysis Actions -->
+{% if alert_summary.total > 0 %}
+<div class="card border-warning mb-4">
+    <div class="card-header bg-warning text-dark">
+        <h5 class="card-title mb-0">⚠️ EGT Analysis Alert</h5>
+    </div>
+    <div class="card-body">
+        <p class="card-text">
+            This mission contains <strong>{{ alert_summary.total }} EGT alerts</strong> that require attention.
+            These alerts may indicate:
+        </p>
+        <ul class="mb-3">
+            <li>Cylinder temperature divergence patterns</li>
+            <li>Individual cylinders running abnormally hot or cold</li>
+            <li>Rapid temperature changes indicating instability</li>
+            <li>Sustained temperature deviations from baseline</li>
+        </ul>
+        <div class="d-flex gap-2 flex-wrap">
+            <a href="/egt_alerts/{{ mission.session_id }}" class="btn btn-warning">
+                <i class="fas fa-chart-line"></i> View Detailed EGT Analysis
+            </a>
+            <a href="/maintenance/{{ mission.tail_number }}" class="btn btn-outline-warning">
+                <i class="fas fa-wrench"></i> Maintenance Recommendations
+            </a>
+            <a href="/test_egt_analysis/{{ mission.session_id }}" class="btn btn-outline-secondary">
+                <i class="fas fa-sync"></i> Re-run EGT Analysis
+            </a>
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="card border-success mb-4">
+    <div class="card-header bg-success text-white">
+        <h5 class="card-title mb-0">✅ EGT Analysis Complete</h5>
+    </div>
+    <div class="card-body">
+        <p class="card-text">
+            No EGT anomalies detected during this mission. All cylinder temperatures remained within normal operating parameters.
+        </p>
+        <div class="d-flex gap-2">
+            <a href="/test_egt_analysis/{{ mission.session_id }}" class="btn btn-outline-success">
+                <i class="fas fa-sync"></i> Re-run Analysis
+            </a>
+            <a href="/maintenance/{{ mission.tail_number }}" class="btn btn-outline-primary">
+                <i class="fas fa-clipboard-check"></i> View Maintenance Status
+            </a>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<script>
+// Auto-refresh EGT alerts if this is a recent mission
+document.addEventListener('DOMContentLoaded', function() {
+    const missionTime = new Date('{{ mission.start_time }}');
+    const now = new Date();
+    const hoursSinceStart = (now - missionTime) / (1000 * 60 * 60);
+    
+    // If mission was within last 6 hours, check for new EGT alerts
+    if (hoursSinceStart < 6) {
+        console.log('Recent mission detected, will monitor for new EGT alerts');
+        
+        let lastAlertCount = {{ alert_summary. total }};
+        
+        setInterval(function() {
+            fetch('/api/egt_alerts/{{ mission.session_id }}')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.alert_count > lastAlertCount) {
+                        console.log(`New EGT alerts detected: ${data.alert_count} (was ${lastAlertCount})`);
+                        
+                        // Update the badge
+                        const badge = document.querySelector('span.badge.bg-danger');
+                        if (badge) {
+                            badge.textContent = data.alert_count;
+                        }
+                        
+                        // Show notification
+                        if ('Notification' in window && Notification.permission === 'granted') {
+                            new Notification('New EGT Alerts Detected', {
+                                body: `${data.alert_count - lastAlertCount} new alerts found in mission {{ mission.session_id }}`,
+                                icon: '/static/favicon.ico'
+                            });
+                        }
+                        
+                        lastAlertCount = data.alert_count;
+                        
+                        // Show a banner notification
+                        showAlertBanner(data.alert_count - lastAlertCount);
+                    }
+                })
+                .catch(error => console.log('Error checking for new EGT alerts:', error));
+        }, 30000); // Check every 30 seconds
+        
+        // Request notification permission
+        if ('Notification' in window && Notification.permission === 'default') {
+            Notification.requestPermission();
+        }
+    }
+});
+
+function showAlertBanner(newAlertCount) {
+    // Create a temporary alert banner
+    const banner = document.createElement('div');
+    banner.className = 'alert alert-warning alert-dismissible fade show';
+    banner.innerHTML = `
+        <strong>New EGT Alerts!</strong> ${newAlertCount} new alert(s) detected.
+        <a href="/egt_alerts/{{ mission.session_id }}" class="alert-link">View details</a>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    // Insert at the top of the content
+    const content = document.querySelector('.container');
+    content.insertBefore(banner, content.firstChild);
+    
+    // Auto-dismiss after 10 seconds
+    setTimeout(() => {
+        if (banner.parentNode) {
+            banner.remove();
+        }
+    }, 10000);
+}
+</script>
+
+<style>
+/* EGT-specific styling */
+.badge.bg-danger {
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.7);
+    }
+    70% {
+        box-shadow: 0 0 0 10px rgba(220, 53, 69, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(220, 53, 69, 0);
+    }
+}
+
+.alert-warning {
+    border-left: 4px solid #ffc107;
+}
+
+.alert-success {
+    border-left: 4px solid #198754;
+}
+
+.alert-danger {
+    border-left: 4px solid #dc3545;
+}
+
+.table-responsive {
+    font-size: 0.9rem;
+}
+
+/* Alert severity row colors */
+.table-danger {
+    background-color: rgba(220, 53, 69, 0.1) !important;
+}
+
+.table-warning {
+    background-color: rgba(255, 193, 7, 0.1) !important;
+}
+
+.table-info {
+    background-color: rgba(13, 202, 240, 0.1) !important;
+}
+
+.card.border-warning {
+    border-width: 2px;
+}
+
+.card.border-success {
+    border-width: 2px;
+}
+
+/* Responsive button layout */
+.d-flex.gap-2 {
+    gap: 0.5rem !important;
+}
+
+@media (max-width: 768px) {
+    .d-flex.gap-2.flex-wrap .btn {
+        margin-bottom: 0.5rem;
+    }
+}
+</style>
+{% endblock %}

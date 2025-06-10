@@ -1,0 +1,112 @@
+
+/* Minimal fallback CSS for complete offline use */
+body { 
+    font-family: Arial, sans-serif; 
+    margin: 20px; 
+    background: #f5f5f5; 
+}
+
+.container { 
+    max-width: 1200px; 
+    margin: 0 auto; 
+    background: white; 
+    padding: 20px; 
+    border-radius: 5px; 
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.navbar { 
+    background: #333; 
+    color: white; 
+    padding: 15px; 
+    margin: -20px -20px 20px -20px; 
+}
+
+.navbar a { 
+    color: white; 
+    text-decoration: none; 
+    margin-right: 20px; 
+}
+
+.card { 
+    border: 1px solid #ddd; 
+    margin: 15px 0; 
+    border-radius: 5px; 
+}
+
+.card-header { 
+    background: #f8f9fa; 
+    padding: 15px; 
+    border-bottom: 1px solid #ddd; 
+    font-weight: bold; 
+}
+
+.card-body { 
+    padding: 15px; 
+}
+
+.btn { 
+    padding: 8px 16px; 
+    border: none; 
+    border-radius: 4px; 
+    cursor: pointer; 
+    text-decoration: none; 
+    display: inline-block; 
+    margin: 2px; 
+}
+
+.btn-primary { background: #007bff; color: white; }
+.btn-secondary { background: #6c757d; color: white; }
+.btn-warning { background: #ffc107; color: black; }
+.btn-danger { background: #dc3545; color: white; }
+.btn-success { background: #28a745; color: white; }
+.btn-info { background: #17a2b8; color: white; }
+
+.alert { 
+    padding: 15px; 
+    margin: 15px 0; 
+    border-radius: 4px; 
+}
+
+.alert-info { background: #d1ecf1; border: 1px solid #bee5eb; }
+.alert-warning { background: #fff3cd; border: 1px solid #ffeaa7; }
+.alert-danger { background: #f8d7da; border: 1px solid #f5c6cb; }
+.alert-success { background: #d4edda; border: 1px solid #c3e6cb; }
+
+.table { 
+    width: 100%; 
+    border-collapse: collapse; 
+    margin: 15px 0; 
+}
+
+.table th, .table td { 
+    padding: 12px; 
+    border-bottom: 1px solid #ddd; 
+    text-align: left; 
+}
+
+.table th { 
+    background: #f8f9fa; 
+    font-weight: bold; 
+}
+
+.badge { 
+    padding: 4px 8px; 
+    border-radius: 4px; 
+    font-size: 0.8em; 
+    font-weight: bold; 
+}
+
+.bg-primary { background: #007bff !important; color: white; }
+.bg-warning { background: #ffc107 !important; color: black; }
+.bg-danger { background: #dc3545 !important; color: white; }
+.bg-success { background: #28a745 !important; color: white; }
+
+.row { display: flex; flex-wrap: wrap; margin: -10px; }
+.col-md-6 { flex: 1; padding: 10px; min-width: 300px; }
+.col-md-12 { width: 100%; padding: 10px; }
+
+@media (max-width: 768px) {
+    .col-md-6 { width: 100%; }
+    .row { flex-direction: column; }
+}
